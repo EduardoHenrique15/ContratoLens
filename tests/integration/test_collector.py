@@ -166,3 +166,17 @@ def test_stops_at_target_downloads(session_factory, client, fake_pncp, tmp_path,
     # arquivos (página 2) e a listagem (página 3), para uma próxima execução.
     assert collector.downloaded_count() == 3
     assert count(session_factory, IngestJob, IngestJob.status == JobStatus.PENDING) == 2
+
+
+def test_filters_by_contract_type(session_factory, client, fake_pncp, tmp_path):
+    seed(fake_pncp, n=2)
+    empenho = make_contract("1", 2026, 50, DAY1)
+    empenho["tipoContrato"] = {"id": 7, "nome": "Empenho"}
+    fake_pncp.add_contract(empenho, [("Nota de Empenho", b"x")])
+    collector = make_collector(
+        session_factory, client, tmp_path, contract_types={"Contrato (termo inicial)"}
+    )
+    collector.enqueue_period(DAY1, DAY1)
+    collector.run()
+    assert count(session_factory, Contract) == 2
+    assert not any("/2026/50/" in c for c in fake_pncp.calls)

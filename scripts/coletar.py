@@ -28,7 +28,8 @@ def estimate(meta: int, coverage: float, avg_mb: float, interval: float) -> tupl
     """Estima chamadas, minutos e gigabytes para baixar `meta` contratos."""
     contracts_to_check = math.ceil(meta / coverage)
     calls = contracts_to_check + meta  # 1 listagem de arquivos por contrato + 1 download por PDF
-    minutes = math.ceil(calls * interval * 1.5 / 60)
+    # A rota de arquivos levou de 10 a 60 s por chamada no levantamento; usa 30 s como média.
+    minutes = math.ceil((contracts_to_check * 30 + meta * max(interval, 5)) / 60)
     return calls, minutes, meta * avg_mb / 1024
 
 
@@ -39,6 +40,11 @@ def main() -> int:
     parser.add_argument("--fim", type=parse_date, required=True, help="AAAA-MM-DD")
     parser.add_argument("--ufs", default="", help="siglas separadas por vírgula; vazio = todas")
     parser.add_argument("--meta", type=int, required=True, help="contratos com PDF a baixar")
+    parser.add_argument(
+        "--tipos",
+        default="",
+        help='tipos de contrato separados por ";" (ex.: "Contrato (termo inicial)"); vazio = todos',
+    )
     parser.add_argument("--janela-dias", type=int, default=1)
     parser.add_argument("--cobertura", type=float, default=0.4, help="fração com PDF de contrato")
     parser.add_argument("--tamanho-medio-mb", type=float, default=4.6)
@@ -49,11 +55,13 @@ def main() -> int:
     setup_logging(settings.log_level)
     new_correlation_id()
     ufs = {uf.strip().upper() for uf in args.ufs.split(",") if uf.strip()} or None
+    tipos = {t.strip() for t in args.tipos.split(";") if t.strip()} or None
 
     calls, minutes, gigabytes = estimate(
         args.meta, args.cobertura, args.tamanho_medio_mb, settings.pncp_min_interval_seconds
     )
     print(f"Período: {args.inicio} a {args.fim}; UFs: {', '.join(sorted(ufs)) if ufs else 'todas'}")
+    print(f"Tipos: {'; '.join(sorted(tipos)) if tipos else 'todos'}")
     print(f"Meta: {args.meta} contratos com PDF; pasta: {settings.pdf_dir}")
     print(
         f"Estimativa: ~{calls} chamadas aos arquivos (mais a listagem), ~{minutes} min, "
@@ -66,7 +74,12 @@ def main() -> int:
     session_factory = make_session_factory(engine)
     client = make_client(settings)
     collector = Collector(
-        session_factory, client, settings.pdf_dir, ufs=ufs, target_downloads=args.meta
+        session_factory,
+        client,
+        settings.pdf_dir,
+        ufs=ufs,
+        contract_types=tipos,
+        target_downloads=args.meta,
     )
     try:
         recovered = collector.recover()

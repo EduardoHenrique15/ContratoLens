@@ -53,6 +53,7 @@ class Collector:
         pdf_dir: Path,
         *,
         ufs: set[str] | None = None,
+        contract_types: set[str] | None = None,
         max_attempts: int = 3,
         target_downloads: int | None = None,
     ):
@@ -60,6 +61,9 @@ class Collector:
         self.client = client
         self.pdf_dir = pdf_dir
         self.ufs = {uf.upper() for uf in ufs} if ufs else None
+        self.contract_types = (
+            {t.strip().lower() for t in contract_types} if contract_types else None
+        )
         self.max_attempts = max_attempts
         self.target_downloads = target_downloads
 
@@ -175,6 +179,9 @@ class Collector:
             stats.contracts_seen += 1
             uf = ((item.get("unidadeOrgao") or {}).get("ufSigla") or "").upper()
             if self.ufs is not None and uf not in self.ufs:
+                continue
+            tipo = ((item.get("tipoContrato") or {}).get("nome") or "").strip().lower()
+            if self.contract_types is not None and tipo not in self.contract_types:
                 continue
             columns = contract_columns(item)
             if session.get(Contract, columns["id"]) is None:

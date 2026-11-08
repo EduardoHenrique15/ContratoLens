@@ -32,3 +32,13 @@ a conexão. Ela precisa respeitar a fonte, não baixar nada duas vezes e retomar
   para o volume do projeto; um worker distribuído fica como melhoria futura.
 - O filtro por UF é feito no cliente, porque a listagem de contratos não filtra por UF. Por isso, a coleta
   lê páginas de todo o país para achar os contratos das UFs escolhidas.
+
+## Atualização (2026-11-08): o que o primeiro levantamento real mostrou
+
+- A listagem devolveu `429 Too Many Requests` com 1 chamada por segundo. O intervalo padrão subiu para
+  2 s, e o cliente passou a respeitar o cabeçalho `Retry-After` quando o servidor o envia.
+- A rota de arquivos levou de 10 a 60 s por chamada, com vários timeouts de 60 s. É o gargalo da coleta.
+  Para reduzir chamadas inúteis, a coleta pode filtrar por tipo de contrato (`--tipos`), conforme a
+  cobertura medida por tipo no levantamento.
+- O levantamento passou a salvar a listagem antes da amostra e a contar falhas de um contrato como "erro",
+  sem interromper o resto.
