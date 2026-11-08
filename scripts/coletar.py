@@ -28,8 +28,8 @@ def estimate(meta: int, coverage: float, avg_mb: float, interval: float) -> tupl
     """Estima chamadas, minutos e gigabytes para baixar `meta` contratos."""
     contracts_to_check = math.ceil(meta / coverage)
     calls = contracts_to_check + meta  # 1 listagem de arquivos por contrato + 1 download por PDF
-    # A rota de arquivos levou de 10 a 60 s por chamada no levantamento; usa 30 s como média.
-    minutes = math.ceil((contracts_to_check * 30 + meta * max(interval, 5)) / 60)
+    # No levantamento de 2026-11-08, a rota de arquivos teve mediana de 51 s por contrato.
+    minutes = math.ceil((contracts_to_check * 51 + meta * max(interval, 5)) / 60)
     return calls, minutes, meta * avg_mb / 1024
 
 
@@ -46,7 +46,11 @@ def main() -> int:
         help='tipos de contrato separados por ";" (ex.: "Contrato (termo inicial)"); vazio = todos',
     )
     parser.add_argument("--janela-dias", type=int, default=1)
-    parser.add_argument("--cobertura", type=float, default=0.4, help="fração com PDF de contrato")
+    parser.add_argument("--cobertura", type=float, default=0.8, help="fração com PDF de contrato")
+    parser.add_argument("--semente", type=int, default=42, help="ordem aleatória dos downloads")
+    parser.add_argument(
+        "--refazer-falhas", action="store_true", help="devolve à fila as tarefas que falharam"
+    )
     parser.add_argument("--tamanho-medio-mb", type=float, default=4.6)
     parser.add_argument("--sim", action="store_true", help="não pedir confirmação")
     args = parser.parse_args()
@@ -64,8 +68,8 @@ def main() -> int:
     print(f"Tipos: {'; '.join(sorted(tipos)) if tipos else 'todos'}")
     print(f"Meta: {args.meta} contratos com PDF; pasta: {settings.pdf_dir}")
     print(
-        f"Estimativa: ~{calls} chamadas aos arquivos (mais a listagem), ~{minutes} min, "
-        f"~{gigabytes:.1f} GB em disco."
+        f"Estimativa: ~{calls} chamadas aos arquivos (mais a listagem), ~{minutes / 60:.0f} h, "
+        f"~{gigabytes:.1f} GB em disco. Pode ser interrompida e retomada."
     )
     if not args.sim and not confirm("Começar ou retomar a coleta?"):
         return 1
@@ -80,11 +84,15 @@ def main() -> int:
         ufs=ufs,
         contract_types=tipos,
         target_downloads=args.meta,
+        list_first=True,
+        seed=args.semente,
     )
     try:
         recovered = collector.recover()
         if recovered:
             print(f"Retomando: {recovered} tarefa(s) interrompida(s) voltaram para a fila.")
+        if args.refazer_falhas:
+            print(f"Refazendo falhas: {collector.retry_failed()} tarefa(s) voltaram para a fila.")
         collector.enqueue_period(args.inicio, args.fim, window_days=args.janela_dias)
         stats = collector.run()
     finally:
