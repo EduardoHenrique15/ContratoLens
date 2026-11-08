@@ -22,6 +22,14 @@ from contratolens.core.logging import new_correlation_id, setup_logging  # noqa:
 from contratolens.ingest.survey import file_coverage, survey_period  # noqa: E402
 
 
+def _save(path: Path, data: dict) -> None:
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _fmt(pairs) -> str:
+    return ", ".join(f"{k}={v}" for k, v in pairs)
+
+
 def main() -> int:
     """Executa o levantamento e mostra o resumo."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -45,7 +53,10 @@ def main() -> int:
             else min(first.total_pages, args.max_paginas)
         )
         calls = pages + args.amostra
-        minutes = math.ceil(calls * settings.pncp_min_interval_seconds * 1.5 / 60)
+        # A listagem leva ~2 s por página; a rota de arquivos levou de 10 a 60 s por contrato.
+        minutes = math.ceil(
+            (pages * settings.pncp_min_interval_seconds * 1.5 + args.amostra * 30) / 60
+        )
         print(f"Registros no período: {first.total_records} em {first.total_pages} páginas de 500.")
         print(
             f"Estimativa: {calls} chamadas ao PNCP, cerca de {minutes} min. Nenhum PDF é baixado."
@@ -61,32 +72,44 @@ def main() -> int:
             sample_size=args.amostra,
             seed=args.semente,
         )
-        coverage = file_coverage(client, survey.sample) if args.amostra else {}
+        result = {
+            "inicio": args.inicio.isoformat(),
+            "fim": args.fim.isoformat(),
+            "semente": args.semente,
+            "registros": survey.total_records,
+            "paginas_lidas": survey.pages_read,
+            "por_uf": dict(survey.by_uf.most_common()),
+            "por_esfera": dict(survey.by_esfera.most_common()),
+            "por_tipo_contrato": dict(survey.by_tipo_contrato.most_common()),
+            "amostra": len(survey.sample),
+        }
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
+        output = settings.data_dir / f"levantamento_{args.inicio:%Y%m%d}_{args.fim:%Y%m%d}.json"
+        _save(output, result)  # salva a listagem antes da amostra, que é a parte lenta
+
+        print(f"\nRegistros: {survey.total_records} (páginas lidas: {survey.pages_read})")
+        print("UFs com mais registros:", _fmt(survey.by_uf.most_common(10)))
+        print("Esferas:", _fmt(survey.by_esfera.most_common()))
+        print("Tipos de contrato:", _fmt(survey.by_tipo_contrato.most_common(8)))
+
+        if args.amostra:
+            print(
+                f"\nMedindo a cobertura de PDFs em {len(survey.sample)} contratos (rota lenta)..."
+            )
+            coverage = file_coverage(client, survey.sample)
+            result["cobertura_amostra"] = dict(coverage.overall)
+            result["cobertura_por_tipo"] = {
+                k: dict(v) for k, v in coverage.by_tipo_contrato.items()
+            }
+            result["latencia_arquivos_s"] = coverage.latency_summary()
+            _save(output, result)
+            print("Cobertura na amostra:", _fmt(coverage.overall.items()))
+            for tipo, counts in coverage.by_tipo_contrato.items():
+                print(f"  {tipo}: {_fmt(counts.items())}")
+            print("Tempo da rota de arquivos (s):", coverage.latency_summary())
     finally:
         client.close()
 
-    result = {
-        "inicio": args.inicio.isoformat(),
-        "fim": args.fim.isoformat(),
-        "semente": args.semente,
-        "registros": survey.total_records,
-        "paginas_lidas": survey.pages_read,
-        "por_uf": dict(survey.by_uf.most_common()),
-        "por_esfera": dict(survey.by_esfera.most_common()),
-        "por_tipo_contrato": dict(survey.by_tipo_contrato.most_common()),
-        "amostra": len(survey.sample),
-        "cobertura_amostra": dict(coverage),
-    }
-    settings.data_dir.mkdir(parents=True, exist_ok=True)
-    output = settings.data_dir / f"levantamento_{args.inicio:%Y%m%d}_{args.fim:%Y%m%d}.json"
-    output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    print(f"\nRegistros: {survey.total_records} (páginas lidas: {survey.pages_read})")
-    print("UFs com mais registros:", ", ".join(f"{k}={v}" for k, v in survey.by_uf.most_common(10)))
-    print("Esferas:", ", ".join(f"{k}={v}" for k, v in survey.by_esfera.most_common()))
-    print("Tipos:", ", ".join(f"{k}={v}" for k, v in survey.by_tipo_contrato.most_common(5)))
-    if coverage:
-        print("Cobertura na amostra:", ", ".join(f"{k}={v}" for k, v in coverage.items()))
     print(f"Resultado salvo em {output}")
     return 0
 

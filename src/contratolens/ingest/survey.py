@@ -1,11 +1,17 @@
 """Levantamento do recorte só com metadados (sem baixar PDFs), para escolher período e estados."""
 
+import logging
 import random
+import statistics
+import time
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
 
+from contratolens.core.errors import ExternalServiceError
 from contratolens.ingest.pncp_client import PNCPClient
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -59,17 +65,52 @@ def survey_period(
     return result
 
 
-def file_coverage(client: PNCPClient, sample: list[dict]) -> Counter:
-    """Conta, na amostra, quantos contratos têm arquivo do tipo "Contrato"."""
-    counts: Counter = Counter()
-    for item in sample:
-        files = client.list_files(
-            item["orgaoEntidade"]["cnpj"], int(item["anoContrato"]), int(item["sequencialContrato"])
-        )
-        if any(f.is_contract for f in files):
-            counts["com_contrato"] += 1
-        elif files:
-            counts["so_outros_documentos"] += 1
+@dataclass
+class Coverage:
+    """Cobertura de PDFs numa amostra, no geral e por tipo de contrato."""
+
+    overall: Counter = field(default_factory=Counter)
+    by_tipo_contrato: dict[str, Counter] = field(default_factory=dict)
+    latencies_seconds: list[float] = field(default_factory=list)
+
+    def latency_summary(self) -> dict[str, float]:
+        """Mediana e p95 do tempo da rota de arquivos (inclui novas tentativas)."""
+        if not self.latencies_seconds:
+            return {}
+        ordered = sorted(self.latencies_seconds)
+        p95 = ordered[min(len(ordered) - 1, round(0.95 * (len(ordered) - 1)))]
+        return {"p50": round(statistics.median(ordered), 1), "p95": round(p95, 1)}
+
+
+def file_coverage(client: PNCPClient, sample: list[dict]) -> Coverage:
+    """Conta, na amostra, quantos contratos têm arquivo do tipo "Contrato".
+
+    Uma falha num contrato não interrompe o levantamento: ela é contada como "erro".
+    """
+    result = Coverage()
+    for index, item in enumerate(sample, start=1):
+        tipo = (item.get("tipoContrato") or {}).get("nome") or "?"
+        start = time.perf_counter()
+        try:
+            files = client.list_files(
+                item["orgaoEntidade"]["cnpj"],
+                int(item["anoContrato"]),
+                int(item["sequencialContrato"]),
+            )
+        except ExternalServiceError as exc:
+            logger.warning(
+                "Contrato %s ignorado na amostra: %s", item.get("numeroControlePNCP"), exc
+            )
+            outcome = "erro"
         else:
-            counts["sem_arquivo"] += 1
-    return counts
+            if any(f.is_contract for f in files):
+                outcome = "com_contrato"
+            elif files:
+                outcome = "so_outros_documentos"
+            else:
+                outcome = "sem_arquivo"
+        result.latencies_seconds.append(time.perf_counter() - start)
+        result.overall[outcome] += 1
+        result.by_tipo_contrato.setdefault(tipo, Counter())[outcome] += 1
+        logger.info("Amostra %s/%s: %s (%s)", index, len(sample), outcome, tipo)
+    return result
