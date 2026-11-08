@@ -15,9 +15,11 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import date, timedelta
+from decimal import InvalidOperation
 from pathlib import Path
 
 from sqlalchemy import case, func, select, update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from contratolens.core.errors import ExternalServiceError
@@ -39,6 +41,7 @@ class RunStats:
     pages_listed: int = 0
     contracts_seen: int = 0
     contracts_saved: int = 0
+    records_skipped: int = 0
     documents_downloaded: int = 0
     documents_skipped: int = 0
     contracts_without_document: int = 0
@@ -161,11 +164,16 @@ class Collector:
     def _log_progress(self, stats: RunStats, elapsed: float) -> None:
         done = self.downloaded_count()
         rate = stats.documents_downloaded / elapsed * 3600 if elapsed > 0 else 0.0
-        message = f"Progresso: {done} contratos baixados; {rate:.0f} por hora nesta execução"
+        message = (
+            f"Progresso: {stats.pages_listed} páginas listadas, {stats.contracts_saved} contratos "
+            f"novos no banco, {done} com PDF baixado; {rate:.0f} PDFs por hora nesta execução"
+        )
         if self.target_downloads and rate > 0:
             remaining = max(self.target_downloads - done, 0) / rate
             message += f"; faltam ~{remaining:.1f} h para a meta de {self.target_downloads}"
-        logger.info("%s; falhas: %s", message, stats.failures)
+        logger.info(
+            "%s; falhas: %s; registros pulados: %s", message, stats.failures, stats.records_skipped
+        )
 
     def _claim_next(self) -> int | None:
         with self.session_factory.begin() as session:
@@ -197,7 +205,7 @@ class Collector:
                     self._process_contract_files(session, job, stats)
                 else:
                     raise ValueError(f"Tipo de tarefa desconhecido: {job.kind}")
-        except (ExternalServiceError, OSError, ValueError, KeyError) as exc:
+        except (ExternalServiceError, OSError, ValueError, KeyError, SQLAlchemyError) as exc:
             stats.failures += 1
             logger.warning("Tarefa %s falhou: %s", job_id, exc)
             self._mark_failure(job_id, exc)
@@ -230,11 +238,24 @@ class Collector:
             tipo = ((item.get("tipoContrato") or {}).get("nome") or "").strip().lower()
             if self.contract_types is not None and tipo not in self.contract_types:
                 continue
-            columns = contract_columns(item)
-            if session.get(Contract, columns["id"]) is None:
-                session.add(Contract(**columns))
-                stats.contracts_saved += 1
-            self._enqueue_files(session, columns["id"])
+            try:
+                # Ponto de salvamento por registro: um registro inválido é pulado e registrado,
+                # sem perder o resto da página.
+                with session.begin_nested():
+                    columns = contract_columns(item)
+                    if session.get(Contract, columns["id"]) is None:
+                        session.add(Contract(**columns))
+                        session.flush()
+                        stats.contracts_saved += 1
+                    self._enqueue_files(session, columns["id"])
+            except (SQLAlchemyError, KeyError, ValueError, TypeError, InvalidOperation) as exc:
+                stats.records_skipped += 1
+                logger.warning(
+                    "Registro %s pulado: %s: %s",
+                    item.get("numeroControlePNCP"),
+                    type(exc).__name__,
+                    str(exc).splitlines()[0][:300],
+                )
         if page_number >= page.total_pages:
             job.status = JobStatus.DONE
         else:

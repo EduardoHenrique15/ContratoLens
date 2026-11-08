@@ -225,3 +225,28 @@ def test_retry_failed_requeues_and_completes(session_factory, client, fake_pncp,
     assert count(session_factory, Document) == 1
     with session_factory() as session:
         assert session.scalar(select(Contract.download_status)) == DownloadStatus.DOWNLOADED
+
+
+def test_saves_foreign_supplier_with_long_identifier(session_factory, client, fake_pncp, tmp_path):
+    item = make_contract("1", 2026, 1, DAY1, tipo_pessoa="PE", ni="ESTRANGEIRO_GLOBAL_LIFE")
+    fake_pncp.add_contract(item, [("Contrato", PDF_BYTES)])
+    collector = make_collector(session_factory, client, tmp_path)
+    collector.enqueue_period(DAY1, DAY1)
+    collector.run()
+    with session_factory() as session:
+        assert session.scalar(select(Contract.fornecedor_ni)) == "ESTRANGEIRO_GLOBAL_LIFE"
+
+
+def test_invalid_record_is_skipped_without_losing_the_page(
+    session_factory, client, fake_pncp, tmp_path
+):
+    seed(fake_pncp, n=2)
+    broken = make_contract("1", 2026, 3, DAY1)
+    del broken["orgaoEntidade"]
+    fake_pncp.contracts.append(broken)
+    collector = make_collector(session_factory, client, tmp_path)
+    collector.enqueue_period(DAY1, DAY1)
+    stats = collector.run()
+    assert stats.records_skipped == 1
+    assert count(session_factory, Contract) == 2
+    assert count(session_factory, Document) == 2
