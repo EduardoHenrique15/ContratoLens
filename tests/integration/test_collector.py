@@ -180,3 +180,48 @@ def test_filters_by_contract_type(session_factory, client, fake_pncp, tmp_path):
     collector.run()
     assert count(session_factory, Contract) == 2
     assert not any("/2026/50/" in c for c in fake_pncp.calls)
+
+
+def test_list_first_lists_everything_then_downloads_in_seeded_order(
+    session_factory, client, fake_pncp, tmp_path
+):
+    seed(fake_pncp, n=3, day=DAY1)
+    seed(fake_pncp, n=3, day=DAY2, start_seq=10)
+    collector = make_collector(session_factory, client, tmp_path, list_first=True, seed=7)
+    collector.enqueue_period(DAY1, DAY2)
+    collector.run(max_jobs=2)  # as duas janelas de listagem vêm primeiro
+    assert count(session_factory, Contract) == 6
+    assert count(session_factory, Document) == 0
+
+    collector.run()
+    downloads = [c for c in fake_pncp.calls if c.rsplit("/", 1)[-1].isdigit()]
+    expected = sorted(
+        (f"1-2-{seq:06d}/2026" for seq in (1, 2, 3, 10, 11, 12)),
+        key=collector.priority_for,
+    )
+    order = [f"1-2-{int(url.split('/')[-3]):06d}/2026" for url in downloads]
+    assert order == expected
+
+
+def test_priority_is_reproducible_and_depends_on_seed(session_factory, client, tmp_path):
+    a = make_collector(session_factory, client, tmp_path, seed=1)
+    b = make_collector(session_factory, client, tmp_path, seed=1)
+    c = make_collector(session_factory, client, tmp_path, seed=2)
+    assert a.priority_for("x") == b.priority_for("x")
+    assert [a.priority_for(str(i)) for i in range(5)] != [c.priority_for(str(i)) for i in range(5)]
+
+
+def test_retry_failed_requeues_and_completes(session_factory, client, fake_pncp, tmp_path):
+    seed(fake_pncp, n=1)
+    files_url = f"{API}/v1/orgaos/1/contratos/2026/1/arquivos"
+    fake_pncp.failures[files_url] = [503] * 9
+    collector = make_collector(session_factory, client, tmp_path, max_attempts=3)
+    collector.enqueue_period(DAY1, DAY1)
+    collector.run()
+    assert count(session_factory, Document) == 0
+
+    assert collector.retry_failed() == 1
+    collector.run()
+    assert count(session_factory, Document) == 1
+    with session_factory() as session:
+        assert session.scalar(select(Contract.download_status)) == DownloadStatus.DOWNLOADED

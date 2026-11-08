@@ -110,6 +110,7 @@ class IngestJob(Base):
     key: Mapped[str] = mapped_column(String(128), unique=True)
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     status: Mapped[str] = mapped_column(String(16), default=JobStatus.PENDING, index=True)
+    priority: Mapped[int] = mapped_column(Integer, default=0, server_default="0", index=True)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

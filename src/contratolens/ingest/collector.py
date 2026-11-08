@@ -10,7 +10,9 @@ Ao atingir a meta de contratos baixados, a execução para; as tarefas restantes
 para uma próxima vez.
 """
 
+import hashlib
 import logging
+import time
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
@@ -56,6 +58,9 @@ class Collector:
         contract_types: set[str] | None = None,
         max_attempts: int = 3,
         target_downloads: int | None = None,
+        list_first: bool = False,
+        seed: int = 42,
+        progress_every: int = 25,
     ):
         self.session_factory = session_factory
         self.client = client
@@ -66,6 +71,9 @@ class Collector:
         )
         self.max_attempts = max_attempts
         self.target_downloads = target_downloads
+        self.list_first = list_first
+        self.seed = seed
+        self.progress_every = progress_every
 
     def enqueue_period(self, start: date, end: date, window_days: int = 1) -> int:
         """Cria tarefas de listagem por janela de datas. Janelas já enfileiradas são ignoradas."""
@@ -101,6 +109,26 @@ class Collector:
             )
             return result.rowcount or 0
 
+    def retry_failed(self) -> int:
+        """Devolve à fila as tarefas que falharam, para tentar de novo (ex.: em outro dia)."""
+        with self.session_factory.begin() as session:
+            failed = session.scalars(
+                select(IngestJob).where(IngestJob.status == JobStatus.FAILED)
+            ).all()
+            for job in failed:
+                job.status = JobStatus.PENDING
+                job.attempts = 0
+                if job.kind == CONTRACT_FILES:
+                    contract = session.get(Contract, job.payload["contract_id"])
+                    if contract is not None and contract.download_status == DownloadStatus.FAILED:
+                        contract.download_status = DownloadStatus.PENDING
+            return len(failed)
+
+    def priority_for(self, contract_id: str) -> int:
+        """Ordem pseudoaleatória e reprodutível (pela semente) para baixar os contratos."""
+        digest = hashlib.sha256(f"{self.seed}:{contract_id}".encode()).hexdigest()
+        return int(digest[:7], 16)
+
     def downloaded_count(self) -> int:
         """Quantos contratos já têm o documento baixado."""
         with self.session_factory() as session:
@@ -113,6 +141,7 @@ class Collector:
     def run(self, max_jobs: int | None = None) -> RunStats:
         """Processa a fila. Chame `recover()` antes, para retomar após uma queda."""
         stats = RunStats()
+        started = time.monotonic()
         while max_jobs is None or stats.jobs_processed < max_jobs:
             if (
                 self.target_downloads is not None
@@ -125,14 +154,32 @@ class Collector:
                 break
             self._process(job_id, stats)
             stats.jobs_processed += 1
+            if self.progress_every and stats.jobs_processed % self.progress_every == 0:
+                self._log_progress(stats, time.monotonic() - started)
         return stats
+
+    def _log_progress(self, stats: RunStats, elapsed: float) -> None:
+        done = self.downloaded_count()
+        rate = stats.documents_downloaded / elapsed * 3600 if elapsed > 0 else 0.0
+        message = f"Progresso: {done} contratos baixados; {rate:.0f} por hora nesta execução"
+        if self.target_downloads and rate > 0:
+            remaining = max(self.target_downloads - done, 0) / rate
+            message += f"; faltam ~{remaining:.1f} h para a meta de {self.target_downloads}"
+        logger.info("%s; falhas: %s", message, stats.failures)
 
     def _claim_next(self) -> int | None:
         with self.session_factory.begin() as session:
             query = select(IngestJob).where(IngestJob.status == JobStatus.PENDING)
-            query = query.order_by(
-                case((IngestJob.kind == CONTRACT_FILES, 0), else_=1), IngestJob.id
-            ).limit(1)
+            if self.list_first:
+                # Lista o período inteiro antes; depois baixa em ordem pseudoaleatória (prioridade).
+                order = (
+                    case((IngestJob.kind == LIST_WINDOW, 0), else_=1),
+                    IngestJob.priority,
+                    IngestJob.id,
+                )
+            else:
+                order = (case((IngestJob.kind == CONTRACT_FILES, 0), else_=1), IngestJob.id)
+            query = query.order_by(*order).limit(1)
             job = session.scalar(query)
             if job is None:
                 return None
@@ -201,7 +248,12 @@ class Collector:
         key = f"{CONTRACT_FILES}:{contract_id}"
         if session.scalar(select(IngestJob.id).where(IngestJob.key == key)) is None:
             session.add(
-                IngestJob(kind=CONTRACT_FILES, key=key, payload={"contract_id": contract_id})
+                IngestJob(
+                    kind=CONTRACT_FILES,
+                    key=key,
+                    payload={"contract_id": contract_id},
+                    priority=self.priority_for(contract_id),
+                )
             )
             session.flush()
 

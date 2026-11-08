@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     )
     pncp_min_interval_seconds: float = 2.0
     pncp_timeout_seconds: float = 60.0
-    pncp_max_attempts: int = 5
+    pncp_max_attempts: int = 3
 
     gemini_api_key: SecretStr | None = None
     gemini_model: str = "gemini-3.8-flash"
