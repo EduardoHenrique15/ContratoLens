@@ -3,7 +3,8 @@
 Renderiza a página com pypdfium2, roda o Tesseract e mostra tempo, quantidade de texto,
 confiança média e um trecho curto com CPFs mascarados. Não chama nenhum serviço externo.
 
-Uso (PowerShell): .\\.venv\\Scripts\\python.exe scripts\\verificar_ocr.py "$env:TEMP\\contrato_teste.pdf"
+Uso (PowerShell):
+    .\\.venv\\Scripts\\python.exe scripts\\verificar_ocr.py "$env:TEMP\\contrato_teste.pdf"
 """
 
 import re
@@ -30,13 +31,11 @@ def main() -> int:
 
     start = time.perf_counter()
     image = page.render(scale=DPI / 72).to_pil()
-    data = pytesseract.image_to_data(
-        image, lang="por", output_type=pytesseract.Output.DICT
-    )
+    data = pytesseract.image_to_data(image, lang="por", output_type=pytesseract.Output.DICT)
     elapsed = time.perf_counter() - start
 
     words = [w for w in data["text"] if w.strip()]
-    confidences = [float(c) for c, w in zip(data["conf"], data["text"]) if w.strip()]
+    confidences = [float(c) for c, w in zip(data["conf"], data["text"], strict=True) if w.strip()]
     text = " ".join(words)
     mean_conf = sum(confidences) / len(confidences) if confidences else 0.0
 

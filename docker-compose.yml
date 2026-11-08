@@ -1,0 +1,20 @@
+# Fase 1: só o banco. API, worker e demo entram nas fases seguintes.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: contratolens
+      POSTGRES_PASSWORD: contratolens
+      POSTGRES_DB: contratolens
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contratolens"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
