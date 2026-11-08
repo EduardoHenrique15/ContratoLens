@@ -1,6 +1,6 @@
 # ADR 0003: rastreamento com painel próprio, sem Phoenix
 
-- Status: proposta (aguarda confirmação do Eduardo)
+- Status: aceita (2026-11-08)
 - Data: 2026-11-07
 
 ## Contexto

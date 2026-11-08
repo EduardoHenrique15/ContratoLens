@@ -3,7 +3,7 @@
 | Fase | Status | Data |
 | --- | --- | --- |
 | Fase 0: verificação e ambiente | Concluída | 2026-11-07 |
-| Fase 1: fundação e coleta | Não iniciada | |
+| Fase 1: fundação e coleta | Em andamento | 2026-11-08 |
 | Fase 2: leitura de documentos | Não iniciada | |
 | Fase 3: extração com LLM e validações | Não iniciada | |
 | Fase 4: conjunto de referência e comparação | Não iniciada | |
@@ -39,7 +39,22 @@ decisões em `docs/decisoes/0001` a `0003`.
 
 ### Pendências
 
-- Confirmar a ADR 0003 (rastreamento sem Phoenix).
 - Registrar o preço por token do `gemini-3.8-flash` antes da estimativa de custo da Fase 3.
 - Procurar a licença explícita dos dados do PNCP antes da Fase 8.
 - Apagar `%TEMP%\contrato_teste.pdf` quando não for mais útil.
+
+## Fase 1: fundação e coleta
+
+Checklist (seção 13):
+
+- [x] 1. Estrutura, `pyproject.toml`, requirements, `.gitignore`, `.env.example`, LICENSE, CI
+- [x] 2. `core/` (config, logs, erros, custos, mascaramento) com testes
+- [x] 3. Banco, modelos e migração inicial (`contracts`, `documents`, `ingest_jobs`)
+- [x] 4. Coletor do PNCP com fila, limite de taxa, novas tentativas, idempotência e retomada; testes com `FakePNCP`
+- [ ] 5. Levantamento do recorte, coleta e números reais anotados (feito pelo Eduardo, com autorização)
+
+Observações:
+
+- ADR 0003 (rastreamento sem Phoenix) aceita: o Eduardo pediu para prosseguir com o plano.
+- 42 testes passando (`pytest`), `ruff check` e `ruff format` limpos.
+- O teste da migração contra o PostgreSQL real é feito na máquina do Eduardo (`alembic upgrade head`).
