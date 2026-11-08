@@ -30,3 +30,4 @@ def setup_logging(level: str = "INFO") -> None:
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(level.upper())
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # uma linha por requisição polui o log

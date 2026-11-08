@@ -70,3 +70,13 @@ def test_list_files_without_files_returns_empty(client):
 def test_sends_generic_user_agent(client, fake_pncp):
     client.list_files("9", 2026, 1)
     assert fake_pncp.user_agents == ["contratolens-testes"]
+
+
+def test_respects_retry_after(client, fake_pncp):
+    waits = []
+    client._retrying.sleep = waits.append
+    fake_pncp.add_contract(make_contract("1", 2026, 1, DAY))
+    fake_pncp.failures[f"{CONSULTA}/v1/contratos"] = [(429, {"Retry-After": "7"})]
+    page = client.list_contracts(DAY, DAY, page=1)
+    assert page.total_records == 1
+    assert waits == [7.0]

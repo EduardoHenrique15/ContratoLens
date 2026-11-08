@@ -52,7 +52,7 @@ class FakePNCP:
     contracts: list[dict] = field(default_factory=list)
     files: dict[str, list[dict]] = field(default_factory=dict)
     blobs: dict[str, bytes] = field(default_factory=dict)
-    failures: dict[str, list[int]] = field(default_factory=dict)
+    failures: dict[str, list[int | tuple[int, dict]]] = field(default_factory=dict)
     calls: list[str] = field(default_factory=list)
     user_agents: list[str] = field(default_factory=list)
 
@@ -80,9 +80,11 @@ class FakePNCP:
 
     def _fail(self, url: str) -> httpx.Response | None:
         queue = self.failures.get(url)
-        if queue:
-            return httpx.Response(queue.pop(0))
-        return None
+        if not queue:
+            return None
+        failure = queue.pop(0)
+        status, headers = failure if isinstance(failure, tuple) else (failure, {})
+        return httpx.Response(status, headers=headers)
 
     def _list(self, request: httpx.Request) -> httpx.Response:
         self.calls.append(str(request.url))

@@ -21,8 +21,32 @@ MAX_PAGE_SIZE = 500
 TRANSIENT_STATUS = {408, 425, 429, 500, 502, 503, 504}
 
 
+MAX_RETRY_AFTER_SECONDS = 300.0
+
+
 def _is_transient(exc: BaseException) -> bool:
     return isinstance(exc, ExternalServiceError) and exc.transient
+
+
+def _retry_after_seconds(response: httpx.Response) -> float | None:
+    value = response.headers.get("Retry-After")
+    try:
+        return min(float(value), MAX_RETRY_AFTER_SECONDS) if value else None
+    except ValueError:
+        return None  # formato de data HTTP: usa a espera crescente padrão
+
+
+class RespectRetryAfter(wait_base):
+    """Espera o tempo pedido pelo servidor (Retry-After) ou, sem ele, a espera de reserva."""
+
+    def __init__(self, fallback: wait_base):
+        self.fallback = fallback
+
+    def __call__(self, retry_state) -> float:
+        exc = retry_state.outcome.exception() if retry_state.outcome else None
+        if isinstance(exc, ExternalServiceError) and exc.retry_after is not None:
+            return exc.retry_after
+        return self.fallback(retry_state)
 
 
 @dataclass(frozen=True)
@@ -59,7 +83,9 @@ class PNCPClient:
         self._retrying = Retrying(
             retry=retry_if_exception(_is_transient),
             stop=stop_after_attempt(max_attempts),
-            wait=wait if wait is not None else wait_exponential(multiplier=2, min=2, max=60),
+            wait=RespectRetryAfter(
+                wait if wait is not None else wait_exponential(multiplier=2, min=2, max=60)
+            ),
             reraise=True,
         )
 
@@ -83,6 +109,7 @@ class PNCPClient:
                 f"Status {response.status_code} em {url}",
                 status_code=response.status_code,
                 transient=True,
+                retry_after=_retry_after_seconds(response),
             )
         return response
 

@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     pncp_user_agent: str = (
         "contratolens/0.1 (projeto de portfolio; github.com/EduardoHenrique15/contratolens)"
     )
-    pncp_min_interval_seconds: float = 1.0
+    pncp_min_interval_seconds: float = 2.0
     pncp_timeout_seconds: float = 60.0
     pncp_max_attempts: int = 5
 
