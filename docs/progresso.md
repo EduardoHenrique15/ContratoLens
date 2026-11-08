@@ -58,3 +58,7 @@ Observações:
 - ADR 0003 (rastreamento sem Phoenix) aceita: o Eduardo pediu para prosseguir com o plano.
 - 42 testes passando (`pytest`), `ruff check` e `ruff format` limpos.
 - O teste da migração contra o PostgreSQL real é feito na máquina do Eduardo (`alembic upgrade head`).
+- Migração 0001 aplicada no PostgreSQL do Eduardo em 2026-11-08.
+- Levantamento real (semana de 1 a 7/10/2026): 42.137 registros; cobertura de PDF de 80% entre os que
+  responderam; rota de arquivos lenta (mediana 51 s) e instável (37% de erro na amostra).
+  Recorte proposto na ADR 0006: cerca de 1.000 contratos de outubro de 2026, todo o país.
