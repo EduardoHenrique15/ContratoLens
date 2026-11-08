@@ -20,5 +20,37 @@ jobs:
         run: ruff check .
       - name: Ruff (formatação)
         run: ruff format --check .
-      - name: Testes
+      - name: Testes (SQLite)
+        run: pytest
+
+  testes-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: contratolens
+          POSTGRES_PASSWORD: contratolens
+          POSTGRES_DB: contratolens_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U contratolens"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://contratolens:contratolens@localhost:5432/contratolens_test
+      DATABASE_URL: postgresql+psycopg://contratolens:contratolens@localhost:5432/contratolens_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar dependências
+        run: pip install -r requirements-dev.txt
+      - name: Migrações no PostgreSQL
+        run: alembic upgrade head && alembic downgrade base
+      - name: Testes (PostgreSQL)
         run: pytest

@@ -42,3 +42,13 @@ a conexão. Ela precisa respeitar a fonte, não baixar nada duas vezes e retomar
   cobertura medida por tipo no levantamento.
 - O levantamento passou a salvar a listagem antes da amostra e a contar falhas de um contrato como "erro",
   sem interromper o resto.
+
+## Atualização (2026-11-08): primeira coleta real
+
+- Um contrato com fornecedor estrangeiro (`tipoPessoa = "PE"`) trouxe `niFornecedor` com texto
+  (`ESTRANGEIRO_GLOBAL_LIFE`), maior que a coluna `VARCHAR(20)`, e derrubou a coleta. Correções:
+  colunas de texto livre vindas da API viraram `TEXT` (migração 0003); cada registro é gravado num
+  ponto de salvamento próprio, então um registro inválido é pulado e registrado no log, sem perder a
+  página; erros de banco passaram a contar como falha da tarefa, sem derrubar o processo.
+- Os testes usavam só SQLite, que não confere o tamanho de `VARCHAR`. O CI ganhou um job com
+  PostgreSQL (`TEST_DATABASE_URL`), que reproduz esse erro.
