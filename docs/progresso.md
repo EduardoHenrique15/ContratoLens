@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | Fase 0: verificação e ambiente | Concluída | 2026-11-07 |
 | Fase 1: fundação e coleta | Concluída | 2026-11-11 |
-| Fase 2: leitura de documentos | Não iniciada | |
+| Fase 2: leitura de documentos | Em andamento | 2026-11-11 |
 | Fase 3: extração com LLM e validações | Não iniciada | |
 | Fase 4: conjunto de referência e comparação | Não iniciada | |
 | Fase 5: busca e agente | Não iniciada | |
@@ -82,3 +82,16 @@ Pendências para a Fase 2:
 - Tratar os 11 arquivos que não começam com `%PDF` (identificar o formato e registrar).
 - As 271 consultas com falha podem voltar à fila com `--refazer-falhas`, se for preciso aumentar a base.
 - O tamanho mediano de 0,10 MB sugere que boa parte dos PDFs tem texto nativo (sem OCR); medir na Fase 2.
+
+## Fase 2: leitura de documentos
+
+Checklist (seção 13):
+
+- [x] 1. Texto com coordenadas (`pdfplumber`), detecção de página escaneada e OCR seletivo (Tesseract)
+- [x] 2. Trechos com caixa delimitadora (tabela `chunks`) e palavras por página (tabela `pages`)
+- [ ] 3. Leitura dos 1.026 documentos e estatísticas (páginas, porcentagem escaneada, tamanho médio)
+
+Observações:
+
+- ADR 0007 registra as decisões de leitura.
+- 74 testes passando, inclusive OCR real de um PDF escaneado fictício em 2 processos.

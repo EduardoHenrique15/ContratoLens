@@ -16,6 +16,7 @@ Toda biblioteca tem um propósito (regra 10). Versões fixadas em `requirements.
 | `pydantic-settings` | MIT | Configuração lida do `.env`, com segredos em `SecretStr` |
 | `python-dotenv` | BSD-3 | Leitura do `.env` nos scripts de verificação da Fase 0 |
 | `openai` | Apache-2.0 | SDK do LLM (endpoint compatível do Gemini) |
+| `pdfplumber` | MIT | Texto nativo com coordenadas de cada palavra (Fase 2); usa `pdfminer.six` (MIT) |
 | `pypdfium2` | Apache-2.0 / BSD-3 | Renderização das páginas do PDF |
 | `pytesseract` | Apache-2.0 | Interface com o Tesseract (OCR) |
 | `pytest` | MIT | Testes |

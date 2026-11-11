@@ -14,6 +14,8 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+      - name: Instalar Tesseract (OCR em português)
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-por
       - name: Instalar dependências
         run: pip install -r requirements-dev.txt
       - name: Ruff (lint)
@@ -48,6 +50,8 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+      - name: Instalar Tesseract (OCR em português)
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-por
       - name: Instalar dependências
         run: pip install -r requirements-dev.txt
       - name: Migrações no PostgreSQL
