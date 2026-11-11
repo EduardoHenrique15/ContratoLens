@@ -2,7 +2,7 @@
 
 from PIL import Image
 
-from contratolens.documents.types import Word
+from contratolens.documents.types import Word, clean_text
 
 POINTS_PER_INCH = 72
 
@@ -27,7 +27,7 @@ def ocr_image(image: Image.Image, dpi: int, lang: str = "por") -> tuple[list[Wor
         data["height"],
         strict=True,
     ):
-        text = text.strip()
+        text = clean_text(text).strip()
         confidence = float(conf)
         if not text or confidence < 0:
             continue

@@ -39,3 +39,13 @@ de 0,10 MB, o que sugere muitos PDFs com texto nativo, e 11 arquivos que não s�
   cerca de um quarto.
 - Páginas giradas e tabelas complexas podem gerar ordem de leitura imperfeita; vai para as limitações.
 - O JSON de palavras ocupa espaço no banco (estimativa: dezenas de MB para 1.000 documentos).
+
+## Atualização (2026-11-11): primeira leitura real
+
+- Um contrato real trouxe o caractere nulo (`\x00`) no texto extraído, que o PostgreSQL recusa. O
+  leitor passou a remover caracteres de controle e invisíveis (`clean_text`) do texto nativo e do OCR.
+- A falha de gravação de um documento derrubava o lote, e o encerramento esperava a fila inteira
+  terminar (parecia travado). Agora a falha vira `processing_status = error` com a mensagem, o lote
+  continua, e um Ctrl+C cancela na hora os documentos que ainda não começaram.
+- Avisos do `pdfminer` sobre PDFs malformados ("Cannot begin marked-content...") foram silenciados no
+  log: não afetam a extração.

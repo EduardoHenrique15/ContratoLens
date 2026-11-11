@@ -1,8 +1,20 @@
 """Estruturas de dados da leitura de documentos. Coordenadas em pontos do PDF, origem no topo."""
 
+import re
 from dataclasses import dataclass, field
 
 NATIVE = "native"
+
+# Caracteres de controle (exceto tab e quebra de linha) e invisíveis de largura zero. Alguns PDFs
+# trazem o caractere nulo (\x00) no texto, que o PostgreSQL não aceita em campos de texto.
+_INVISIBLE = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u200b-\u200d\u2060\ufeff]")
+
+
+def clean_text(text: str) -> str:
+    """Remove caracteres de controle e invisíveis, mantendo o texto legível."""
+    return _INVISIBLE.sub("", text)
+
+
 OCR = "ocr"
 
 

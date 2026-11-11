@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import delete, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from contratolens.db.models import Chunk as ChunkRecord
@@ -150,12 +151,11 @@ def process_documents(
     factory = executor_factory or (
         lambda n: ProcessPoolExecutor(max_workers=n, initializer=_limit_ocr_threads)
     )
-    with factory(workers) as executor:
-        futures = [executor.submit(process_file, doc_id, path) for doc_id, path in documents]
+    executor = factory(workers)
+    futures = [executor.submit(process_file, doc_id, path) for doc_id, path in documents]
+    try:
         for future in as_completed(futures):
-            result = future.result()
-            with session_factory.begin() as session:
-                save_result(session, result)
+            result = _save_or_record_error(session_factory, future.result())
             stats.processed += 1
             stats.seconds.append(result["seconds"])
             if result["status"] == ProcessingStatus.DONE:
@@ -187,4 +187,34 @@ def process_documents(
                     rate,
                     remaining,
                 )
+    except BaseException:
+        # Ctrl+C ou erro inesperado: cancela o que ainda não começou, em vez de esperar a fila toda.
+        for future in futures:
+            future.cancel()
+        executor.shutdown(wait=False, cancel_futures=True)
+        raise
+    executor.shutdown(wait=True)
     return stats
+
+
+def _save_or_record_error(
+    session_factory: sessionmaker[Session], result: dict[str, Any]
+) -> dict[str, Any]:
+    """Grava o resultado; se o banco recusar, registra o documento como erro e segue em frente."""
+    try:
+        with session_factory.begin() as session:
+            save_result(session, result)
+        return result
+    except SQLAlchemyError as exc:
+        message = f"Falha ao gravar: {type(exc).__name__}: {str(exc).splitlines()[0][:300]}"
+        failed = {
+            **result,
+            "status": ProcessingStatus.ERROR,
+            "error": message,
+            "pages": [],
+            "chunks": [],
+            "ocr_pages": None,
+        }
+        with session_factory.begin() as session:
+            save_result(session, failed)
+        return failed

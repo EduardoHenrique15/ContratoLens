@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from contratolens.documents.ocr import ocr_image
-from contratolens.documents.types import NATIVE, OCR, PageContent, Word
+from contratolens.documents.types import NATIVE, OCR, PageContent, Word, clean_text
 
 MIN_NATIVE_CHARS = 50
 IMAGE_COVERAGE_FOR_SCAN = 0.5
@@ -110,9 +110,9 @@ def read_pdf(path: Path, ocr_dpi: int = OCR_DPI, lang: str = "por") -> list[Page
     with pdfplumber.open(path) as pdf:
         for number, page in enumerate(pdf.pages, start=1):
             native = [
-                Word(w["text"], w["x0"], w["top"], w["x1"], w["bottom"])
+                Word(text, w["x0"], w["top"], w["x1"], w["bottom"])
                 for w in page.extract_words(use_text_flow=True)
-                if w["text"].strip()
+                if (text := clean_text(w["text"]).strip())
             ]
             native_chars = sum(len(w.text) for w in native)
             coverage = _image_coverage(page)

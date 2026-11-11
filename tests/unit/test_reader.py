@@ -88,3 +88,33 @@ def test_detects_docx_inside_zip(tmp_path):
     with pytest.raises(UnsupportedDocumentError) as error:
         read_document(path)
     assert str(error.value) == "docx"
+
+
+def test_clean_text_removes_control_and_invisible_chars():
+    from contratolens.documents.types import clean_text
+
+    assert clean_text("CON\x00TRATO​ nº\x07 1") == "CONTRATO nº 1"
+    assert clean_text("linha\nnova\tcom tab") == "linha\nnova\tcom tab"
+
+
+def test_reader_cleans_text_returned_by_pdfplumber(tmp_path, monkeypatch):
+    """O PDF real (contrato de PE) trouxe \x00 no texto extraído; o leitor precisa limpá-lo."""
+    import pdfplumber
+
+    path = text_pdf(tmp_path / "a.pdf", [CONTRACT_PAGE])
+    original_open = pdfplumber.open
+
+    def open_with_nul(*args, **kwargs):
+        pdf = original_open(*args, **kwargs)
+        page = pdf.pages[0]
+        extract = page.extract_words
+        page.extract_words = lambda **kw: [
+            {**w, "text": w["text"].replace("CONTRATO", "CON\x00TRATO")} for w in extract(**kw)
+        ]
+        return pdf
+
+    monkeypatch.setattr(pdfplumber, "open", open_with_nul)
+    content = read_document(path)
+    texts = [w.text for w in content.pages[0].words]
+    assert "CONTRATO" in texts
+    assert not any("\x00" in t for t in texts)

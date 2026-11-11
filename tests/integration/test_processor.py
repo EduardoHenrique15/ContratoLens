@@ -121,3 +121,65 @@ def test_reading_stats(session_factory, tmp_path):
     assert stats["porcentagem_paginas_com_ocr"] == 0.0
     assert stats["trechos"] >= 2
     assert stats["paginas_por_documento"]["mediana"] == 2
+
+
+def test_database_rejection_is_recorded_as_error_and_batch_continues(
+    session_factory, tmp_path, monkeypatch
+):
+    from sqlalchemy.exc import DataError
+
+    from contratolens.documents import processor
+
+    first = add_document(session_factory, text_pdf(tmp_path / "a.pdf", [CONTRACT_PAGE]), 1)
+    second = add_document(session_factory, text_pdf(tmp_path / "b.pdf", [CONTRACT_PAGE]), 2)
+    original = processor.save_result
+
+    def reject_first(session, result):
+        if result["document_id"] == first and result["status"] == "done":
+            raise DataError("INSERT", {}, Exception("text fields cannot contain NUL (0x00) bytes"))
+        return original(session, result)
+
+    monkeypatch.setattr(processor, "save_result", reject_first)
+    stats = process_documents(
+        session_factory, pending_documents(session_factory), executor_factory=threads
+    )
+    assert stats.errors == 1 and stats.done == 1
+    with session_factory() as session:
+        failed = session.get(Document, first)
+        assert failed.processing_status == "error" and "NUL" in failed.processing_error
+        assert session.get(Document, second).processing_status == "done"
+    assert count(session_factory, Chunk, Chunk.document_id == first) == 0
+
+
+def test_nul_text_reaching_the_database_is_recorded_not_fatal(session_factory, tmp_path):
+    """No PostgreSQL, \\x00 é recusado: o documento vira erro e o lote continua."""
+    from contratolens.documents.processor import _save_or_record_error
+
+    doc_id = add_document(session_factory, text_pdf(tmp_path / "a.pdf", [CONTRACT_PAGE]), 1)
+    result = {
+        "document_id": doc_id,
+        "status": "done",
+        "file_type": "pdf",
+        "error": None,
+        "ocr_pages": 0,
+        "seconds": 0.1,
+        "pages": [],
+        "chunks": [
+            {
+                "page_number": 1,
+                "index": 0,
+                "text": "CON\x00TRATO",
+                "x0": 0,
+                "top": 0,
+                "x1": 1,
+                "bottom": 1,
+                "source": "native",
+            }
+        ],
+    }
+    saved = _save_or_record_error(session_factory, result)
+    dialect = session_factory.kw["bind"].dialect.name
+    expected = "error" if dialect == "postgresql" else "done"
+    assert saved["status"] == expected
+    with session_factory() as session:
+        assert session.get(Document, doc_id).processing_status == expected

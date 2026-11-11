@@ -31,3 +31,4 @@ def setup_logging(level: str = "INFO") -> None:
     root.handlers = [handler]
     root.setLevel(level.upper())
     logging.getLogger("httpx").setLevel(logging.WARNING)  # uma linha por requisição polui o log
+    logging.getLogger("pdfminer").setLevel(logging.ERROR)  # avisos de PDFs malformados, sem efeito
