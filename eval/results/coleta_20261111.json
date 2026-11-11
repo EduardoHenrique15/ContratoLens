@@ -1,0 +1,69 @@
+{
+  "contratos_no_banco": 174956,
+  "contratos_por_status": {
+    "pending": 173441,
+    "downloaded": 1000,
+    "failed": 271,
+    "no_contract_document": 244
+  },
+  "baixados_por_uf": {
+    "SC": 328,
+    "SP": 154,
+    "MG": 69,
+    "GO": 66,
+    "PR": 66,
+    "RS": 59,
+    "CE": 39,
+    "RJ": 36,
+    "BA": 27,
+    "PB": 21,
+    "PA": 17,
+    "DF": 14,
+    "ES": 14,
+    "RN": 13,
+    "MS": 12,
+    "PE": 11,
+    "MT": 10,
+    "SE": 8,
+    "MA": 8,
+    "AL": 7,
+    "TO": 6,
+    "RO": 5,
+    "AM": 5,
+    "PI": 3,
+    "AP": 1,
+    "AC": 1
+  },
+  "baixados_por_esfera": {
+    "M": 730,
+    "F": 134,
+    "E": 117,
+    "N": 17,
+    "D": 2
+  },
+  "baixados_por_tipo": {
+    "Contrato (termo inicial)": 398,
+    "Outros": 320,
+    "Empenho": 280,
+    "Carta Contrato": 1,
+    "Termo de Adesão": 1
+  },
+  "tarefas": {
+    "contract_files:done": 1244,
+    "contract_files:failed": 271,
+    "contract_files:pending": 173441,
+    "list_window:done": 31
+  },
+  "cobertura_pdf_contrato": 0.8039,
+  "documentos": {
+    "total": 1026,
+    "tamanho_total_gb": 0.958,
+    "tamanho_medio_mb": 0.93,
+    "tamanho_mediano_mb": 0.1,
+    "por_cabecalho": {
+      "pdf": 1015,
+      "nao_pdf": 11
+    }
+  },
+  "gerado_em": "2026-11-11"
+}
