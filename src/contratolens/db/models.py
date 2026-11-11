@@ -1,7 +1,7 @@
-"""Modelos do banco usados na coleta (Fase 1).
+"""Modelos do banco.
 
-As tabelas das fases seguintes (chunks, extractions, reviews, llm_calls) entram com migrações
-próprias.
+Fase 1: contratos, documentos e fila de coleta. Fase 2: páginas e trechos com coordenadas.
+As tabelas das fases seguintes (extractions, reviews, llm_calls) entram com migrações próprias.
 """
 
 from datetime import date, datetime
@@ -11,7 +11,9 @@ from sqlalchemy import (
     JSON,
     Date,
     DateTime,
+    Float,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -31,6 +33,15 @@ class DownloadStatus:
     DOWNLOADED = "downloaded"
     NO_CONTRACT_DOCUMENT = "no_contract_document"
     FAILED = "failed"
+
+
+class ProcessingStatus:
+    """Valores possíveis de Document.processing_status (leitura do arquivo, Fase 2)."""
+
+    PENDING = "pending"
+    DONE = "done"
+    UNSUPPORTED = "unsupported"
+    ERROR = "error"
 
 
 class JobStatus:
@@ -98,7 +109,62 @@ class Document(Base):
     needs_ocr: Mapped[bool | None] = mapped_column()
     downloaded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
+    file_type: Mapped[str | None] = mapped_column(String(16))
+    processing_status: Mapped[str] = mapped_column(
+        String(16), default=ProcessingStatus.PENDING, server_default="pending", index=True
+    )
+    processing_error: Mapped[str | None] = mapped_column(Text)
+    processing_seconds: Mapped[float | None] = mapped_column(Float)
+    ocr_pages: Mapped[int | None] = mapped_column(Integer)
+    reader_version: Mapped[str | None] = mapped_column(String(16))
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime)
+
     contract: Mapped[Contract] = relationship(back_populates="documents")
+    page_records: Mapped[list["Page"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan"
+    )
+    chunks: Mapped[list["Chunk"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan"
+    )
+
+
+class Page(Base):
+    """Página lida: palavras com coordenadas (JSON compacto) e origem do texto (nativo ou OCR)."""
+
+    __tablename__ = "pages"
+    __table_args__ = (UniqueConstraint("document_id", "page_number"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
+    page_number: Mapped[int] = mapped_column(Integer)
+    width: Mapped[float] = mapped_column(Float)
+    height: Mapped[float] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(8))
+    char_count: Mapped[int] = mapped_column(Integer)
+    ocr_confidence: Mapped[float | None] = mapped_column(Float)
+    words: Mapped[list] = mapped_column(JSON)  # [[texto, x0, top, x1, bottom], ...]
+
+    document: Mapped[Document] = relationship(back_populates="page_records")
+
+
+class Chunk(Base):
+    """Trecho (parágrafo ou cláusula) de uma página, com a caixa delimitadora em pontos do PDF."""
+
+    __tablename__ = "chunks"
+    __table_args__ = (Index("ix_chunks_document_page", "document_id", "page_number"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"))
+    page_number: Mapped[int] = mapped_column(Integer)
+    chunk_index: Mapped[int] = mapped_column(Integer)
+    text: Mapped[str] = mapped_column(Text)
+    x0: Mapped[float] = mapped_column(Float)
+    top: Mapped[float] = mapped_column(Float)
+    x1: Mapped[float] = mapped_column(Float)
+    bottom: Mapped[float] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(8))
+
+    document: Mapped[Document] = relationship(back_populates="chunks")
 
 
 class IngestJob(Base):
