@@ -1,6 +1,6 @@
 # ADR 0006: recorte da coleta (1.000 contratos de outubro de 2026, todo o país)
 
-- Status: proposta (aguarda autorização do Eduardo para coletar)
+- Status: aceita e executada (coleta concluída em 2026-11-11)
 - Data: 2026-11-08
 
 ## Contexto
@@ -43,3 +43,16 @@ tipo não reduz chamadas inúteis.
 - A cobertura de 80% vem de uma amostra pequena (25 respostas); a cobertura real será medida na coleta.
 - Os 37% de erro na amostra mostram que a disponibilidade do PNCP é um risco operacional; vai para o
   runbook.
+
+## Resultado (2026-11-11)
+
+Números de `scripts/estatisticas_coleta.py` (`eval/results/coleta_20261111.json`):
+
+- 174.956 contratos de outubro de 2026 no banco; 1.000 com PDF de contrato baixado (meta atingida).
+- Cobertura de PDF entre os consultados: 80,4% (1.000 de 1.244), igual à estimativa da amostra (80%).
+- Falhas após todas as tentativas: 271 de 1.515 consultas (17,9%), menos que os 37% da amostra.
+- 1.026 documentos, 0,96 GB; tamanho mediano de 0,10 MB, bem abaixo dos 4,6 MB do PDF escaneado da
+  Fase 0. A estimativa de disco (4,5 GB) ficou 4,7 vezes acima do real.
+- Distribuição: SC tem 32,8% dos baixados contra 26,3% dos registros na semana do levantamento; SP tem
+  15,4% contra 23,6%. A amostra segue o volume do PNCP, mas não é perfeitamente proporcional por UF
+  (a cobertura de PDF e as falhas variam entre órgãos). Isso entra nas limitações.

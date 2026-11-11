@@ -39,3 +39,48 @@ sem acusar ninguém.
 - Por que testar a API antes de programar? Porque a existência dos PDFs era a premissa mais arriscada do projeto.
 - Por que filtrar por tipo de documento? Porque nota de empenho não tem cláusulas e distorceria a avaliação.
 - Por que o modelo local só numa amostra? Porque medi a velocidade: a base inteira levaria semanas na minha máquina.
+
+## Fase 1: fundação e coleta
+
+**Objetivo.** Montar a base do projeto (configuração, banco, testes, CI) e baixar um recorte real de
+contratos de forma que dê para repetir e retomar.
+
+**1. Uma fila no próprio banco.** Cada coisa a fazer (listar uma página, baixar os arquivos de um
+contrato) vira uma linha na tabela `ingest_jobs`, com chave única. Se o computador desligar, ao reiniciar
+o coletor devolve as tarefas pela metade para a fila e continua. Isso aconteceu de verdade: a coleta caiu
+por um bug e retomou da página certa depois da correção.
+
+**2. Respeitar a fonte.** O PNCP devolveu `429 Too Many Requests` com 1 chamada por segundo. Subi o
+intervalo para 2 s, passei a respeitar o cabeçalho `Retry-After` e não usei paralelismo, porque a rota de
+arquivos já estava sobrecarregada (erros 503 e timeouts). Ser educado com a API pública faz parte do
+trabalho.
+
+**3. Medir antes de decidir.** O levantamento só com metadados mostrou que a rota de arquivos levava, na
+mediana, 51 s por contrato. Com esse número, a meta caiu de 3 mil para 1.000 contratos (ADR 0006): mais
+que isso levaria dias de coleta e de OCR na minha máquina. A cobertura medida na amostra (80%) bateu com a
+da coleta real (80,4%).
+
+**4. Amostra sem viés de ordem.** Em vez de baixar os primeiros contratos da listagem (que concentrariam
+os primeiros dias do mês), o coletor lista o mês inteiro e baixa numa ordem embaralhada por um hash do id
+com semente fixa. A mesma semente sempre dá a mesma amostra: é reproduzível.
+
+**5. Dado real quebra suposição.** Um fornecedor estrangeiro veio com o "CNPJ" igual a
+`ESTRANGEIRO_GLOBAL_LIFE`, maior que a coluna do banco, e a coleta caiu. Os testes não pegaram porque o
+SQLite não confere o tamanho de texto. Correção: colunas de texto livre viraram `TEXT`, cada registro é
+gravado separado (um registro ruim é pulado e anotado no log) e o CI passou a rodar os testes também no
+PostgreSQL. Lição: testar no mesmo banco da produção.
+
+**6. Privacidade desde a coleta.** Quando o fornecedor é pessoa física, o CPF é mascarado antes de ir para
+o banco, inclusive no JSON bruto. O projeto não precisa desse dado, então não guarda.
+
+**7. Números de verdade, com script.** Todos os números da coleta saem de `scripts/estatisticas_coleta.py`:
+174.956 contratos de outubro de 2026 no banco, 1.000 com PDF, cobertura de 80,4%, 17,9% de consultas com
+falha e 0,96 GB de PDFs (mediana de 0,10 MB por arquivo, o que sugere muitos PDFs com texto nativo).
+
+**Perguntas que posso responder em entrevista:**
+- Como a coleta sobrevive a uma queda? Fila no banco com chave única, tarefas `running` voltam para
+  `pending` ao reiniciar, e download atômico (arquivo `.part` renomeado no fim).
+- Por que só 1.000 contratos? Porque medi a velocidade da fonte e do OCR; a decisão e os números estão na
+  ADR 0006, e aumentar a base é só rodar a coleta com uma meta maior.
+- A amostra é representativa? Segue o volume do PNCP (municípios e SC dominam), mas não é perfeitamente
+  proporcional por UF; isso está documentado como limitação.

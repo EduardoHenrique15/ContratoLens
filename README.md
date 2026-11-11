@@ -18,7 +18,8 @@ oficial do portal e responde perguntas sobre a base sempre citando contrato e p�
 | Fase | Situação |
 | --- | --- |
 | 0. Verificação da fonte e do ambiente | Concluída ([registro](docs/setup-verificacao.md)) |
-| 1. Fundação e coleta | Em andamento |
+| 1. Fundação e coleta | Concluída: 174.956 contratos de out/2026 no banco, 1.000 com PDF |
+| 2. Leitura dos documentos | Próxima |
 
 ## Como rodar (Windows, PowerShell)
 

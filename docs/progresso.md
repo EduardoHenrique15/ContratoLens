@@ -3,7 +3,7 @@
 | Fase | Status | Data |
 | --- | --- | --- |
 | Fase 0: verificação e ambiente | Concluída | 2026-11-07 |
-| Fase 1: fundação e coleta | Em andamento | 2026-11-08 |
+| Fase 1: fundação e coleta | Concluída | 2026-11-11 |
 | Fase 2: leitura de documentos | Não iniciada | |
 | Fase 3: extração com LLM e validações | Não iniciada | |
 | Fase 4: conjunto de referência e comparação | Não iniciada | |
@@ -51,7 +51,7 @@ Checklist (seção 13):
 - [x] 2. `core/` (config, logs, erros, custos, mascaramento) com testes
 - [x] 3. Banco, modelos e migração inicial (`contracts`, `documents`, `ingest_jobs`)
 - [x] 4. Coletor do PNCP com fila, limite de taxa, novas tentativas, idempotência e retomada; testes com `FakePNCP`
-- [ ] 5. Levantamento do recorte, coleta e números reais anotados (feito pelo Eduardo, com autorização)
+- [x] 5. Levantamento do recorte, coleta e números reais anotados (feito pelo Eduardo, com autorização)
 
 Observações:
 
@@ -62,3 +62,23 @@ Observações:
 - Levantamento real (semana de 1 a 7/10/2026): 42.137 registros; cobertura de PDF de 80% entre os que
   responderam; rota de arquivos lenta (mediana 51 s) e instável (37% de erro na amostra).
   Recorte proposto na ADR 0006: cerca de 1.000 contratos de outubro de 2026, todo o país.
+
+### Resultado da coleta (`scripts/estatisticas_coleta.py`, `eval/results/coleta_20261111.json`)
+
+| Medida | Valor |
+| --- | --- |
+| Contratos de outubro de 2026 no banco (metadados oficiais) | 174.956 |
+| Contratos com PDF de contrato baixado | 1.000 (meta atingida) |
+| Documentos baixados | 1.026 (1.015 PDFs; 11 arquivos que não são PDF) |
+| Contratos sem PDF do tipo "Contrato" | 244 |
+| Cobertura de PDF entre os contratos consultados | 80,4% |
+| Consultas que falharam após todas as tentativas | 271 de 1.515 (17,9%) |
+| Tamanho total / médio / mediano | 0,96 GB / 0,93 MB / 0,10 MB |
+| Esfera dos baixados | municipal 730, federal 134, estadual 117 |
+| UFs com mais contratos baixados | SC 328, SP 154, MG 69, GO 66, PR 66 |
+
+Pendências para a Fase 2:
+
+- Tratar os 11 arquivos que não começam com `%PDF` (identificar o formato e registrar).
+- As 271 consultas com falha podem voltar à fila com `--refazer-falhas`, se for preciso aumentar a base.
+- O tamanho mediano de 0,10 MB sugere que boa parte dos PDFs tem texto nativo (sem OCR); medir na Fase 2.
