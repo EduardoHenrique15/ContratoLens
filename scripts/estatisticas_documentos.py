@@ -10,14 +10,14 @@ from datetime import date
 from pathlib import Path
 
 from contratolens.core.config import get_settings
-from contratolens.db.session import make_engine, make_session_factory
+from contratolens.db.session import connect_or_exit, make_session_factory
 from contratolens.documents.stats import reading_stats
 
 
 def main() -> int:
     """Calcula, mostra e salva as estatísticas."""
     settings = get_settings()
-    stats = reading_stats(make_session_factory(make_engine(settings.database_url)))
+    stats = reading_stats(make_session_factory(connect_or_exit(settings.database_url)))
     stats["gerado_em"] = date.today().isoformat()
     output = Path("eval/results") / f"documentos_{date.today():%Y%m%d}.json"
     output.parent.mkdir(parents=True, exist_ok=True)

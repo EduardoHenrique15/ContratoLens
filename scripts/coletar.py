@@ -20,7 +20,7 @@ from sqlalchemy import func, select  # noqa: E402
 from contratolens.core.config import get_settings  # noqa: E402
 from contratolens.core.logging import new_correlation_id, setup_logging  # noqa: E402
 from contratolens.db.models import Contract, Document  # noqa: E402
-from contratolens.db.session import make_engine, make_session_factory  # noqa: E402
+from contratolens.db.session import connect_or_exit, make_session_factory  # noqa: E402
 from contratolens.ingest.collector import Collector  # noqa: E402
 
 
@@ -74,7 +74,7 @@ def main() -> int:
     if not args.sim and not confirm("Começar ou retomar a coleta?"):
         return 1
 
-    engine = make_engine(settings.database_url)
+    engine = connect_or_exit(settings.database_url)
     session_factory = make_session_factory(engine)
     client = make_client(settings)
     collector = Collector(

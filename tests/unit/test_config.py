@@ -24,3 +24,22 @@ def test_defaults(monkeypatch, tmp_path):
     assert settings.data_dir == Path("data")
     assert settings.gemini_api_key is None
     assert "@" not in settings.pncp_user_agent  # identificação genérica, sem e-mail
+
+
+def test_connect_or_exit_explains_unavailable_database(capsys):
+    import pytest
+
+    from contratolens.db.session import connect_or_exit
+
+    with pytest.raises(SystemExit) as error:
+        connect_or_exit("postgresql+psycopg://x:y@127.0.0.1:1/nada")
+    assert error.value.code == 2
+    message = capsys.readouterr().err
+    assert "Docker Desktop" in message and "docker compose up -d db" in message
+
+
+def test_connect_or_exit_returns_engine_when_database_responds(tmp_path):
+    from contratolens.db.session import connect_or_exit
+
+    engine = connect_or_exit(f"sqlite:///{tmp_path / 'ok.db'}")
+    assert engine.dialect.name == "sqlite"

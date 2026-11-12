@@ -13,14 +13,14 @@ from datetime import date
 from pathlib import Path
 
 from contratolens.core.config import get_settings
-from contratolens.db.session import make_engine, make_session_factory
+from contratolens.db.session import connect_or_exit, make_session_factory
 from contratolens.ingest.stats import collection_stats
 
 
 def main() -> int:
     """Calcula, mostra e salva as estatísticas."""
     settings = get_settings()
-    session_factory = make_session_factory(make_engine(settings.database_url))
+    session_factory = make_session_factory(connect_or_exit(settings.database_url))
     stats = collection_stats(session_factory)
     stats["gerado_em"] = date.today().isoformat()
 

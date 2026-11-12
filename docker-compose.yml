@@ -2,6 +2,7 @@
 services:
   db:
     image: postgres:17-alpine
+    restart: unless-stopped  # sobe sozinho quando o Docker Desktop abre
     environment:
       POSTGRES_USER: contratolens
       POSTGRES_PASSWORD: contratolens

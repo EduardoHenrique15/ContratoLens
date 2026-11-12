@@ -14,7 +14,7 @@ import sys
 
 from contratolens.core.config import get_settings
 from contratolens.core.logging import new_correlation_id, setup_logging
-from contratolens.db.session import make_engine, make_session_factory
+from contratolens.db.session import connect_or_exit, make_session_factory
 from contratolens.documents.processor import pending_documents, process_documents
 
 # Medido na Fase 0: OCR a 300 dpi levou 3,35 s por página num núcleo do i7-1165G7.
@@ -56,7 +56,7 @@ def main() -> int:
     settings = get_settings()
     setup_logging(settings.log_level)
     new_correlation_id()
-    session_factory = make_session_factory(make_engine(settings.database_url))
+    session_factory = make_session_factory(connect_or_exit(settings.database_url))
     documents = pending_documents(
         session_factory, retry_errors=args.refazer_erros, reprocess=args.reprocessar
     )
