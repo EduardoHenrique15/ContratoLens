@@ -19,7 +19,8 @@ oficial do portal e responde perguntas sobre a base sempre citando contrato e p�
 | --- | --- |
 | 0. Verificação da fonte e do ambiente | Concluída ([registro](docs/setup-verificacao.md)) |
 | 1. Fundação e coleta | Concluída: 174.956 contratos de out/2026 no banco, 1.000 com PDF |
-| 2. Leitura dos documentos | Próxima |
+| 2. Leitura dos documentos | Concluída: 1.015 PDFs, 6.407 páginas (16,7% com OCR), 43.602 trechos |
+| 3. Extração com LLM e validações | Próxima |
 
 ## Como rodar (Windows, PowerShell)
 

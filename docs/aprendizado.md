@@ -84,3 +84,42 @@ falha e 0,96 GB de PDFs (mediana de 0,10 MB por arquivo, o que sugere muitos PDF
   ADR 0006, e aumentar a base é só rodar a coleta com uma meta maior.
 - A amostra é representativa? Segue o volume do PNCP (municípios e SC dominam), mas não é perfeitamente
   proporcional por UF; isso está documentado como limitação.
+
+## Fase 2: leitura de documentos
+
+**Objetivo.** Transformar cada PDF em texto com a posição de cada palavra, para depois citar a página e
+destacar o trecho em cima do documento.
+
+**1. Coordenadas desde o começo.** O `pdfplumber` devolve cada palavra com sua caixa (`x0`, `top`, `x1`,
+`bottom`). Guardo todas as palavras de cada página, não só o texto corrido. É isso que vai permitir o
+destaque no PDF e conferir se o trecho citado pelo LLM existe mesmo na página indicada.
+
+**2. OCR só onde precisa, página por página.** Rodar OCR em tudo seria lento e pior: o texto nativo é
+exato, o OCR erra. A regra olha cada página: pouco texto com imagem, ou imagem cobrindo a página com um
+carimbo por cima, vai para o OCR. Resultado: só 16,7% das páginas precisaram de OCR, e a leitura levou
+cerca de 30 minutos em vez das 21 horas que eu tinha estimado supondo tudo escaneado.
+
+**3. Paralelismo onde é seguro.** Na coleta eu não paralelizei para não sobrecarregar o PNCP. Aqui o
+trabalho é só no meu computador, então usei 4 processos, um por núcleo, cada Tesseract com uma thread.
+Só o processo principal grava no banco, para evitar conflito.
+
+**4. Dado real quebra suposição de novo.** Um contrato de Pernambuco tinha um caractere nulo (`\x00`)
+escondido no texto, que o PostgreSQL recusa. A falha parou o lote e o programa ficou esperando a fila
+inteira, parecendo travado. Correções: limpar caracteres invisíveis, registrar a falha de um documento
+como erro e seguir, e cancelar a fila na hora com Ctrl+C. Também descobri que meu PDF de teste não
+reproduzia o caractere nulo; testei as duas pontas separadamente e escrevi isso no registro.
+
+**5. Não confiar na extensão.** Todo arquivo tinha extensão `.pdf`, mas 11 eram Word, ODT ou formatos
+desconhecidos. O leitor identifica o formato pelos primeiros bytes e registra o que não trata.
+
+**6. Números de verdade.** 1.015 PDFs, 6.407 páginas, 1.069 com OCR (confiança média 91,1), 43.602
+trechos. Tudo em `eval/results/documentos_20261112.json`, gerado por `scripts/estatisticas_documentos.py`.
+
+**Perguntas que posso responder em entrevista:**
+- Por que não usar OCR em tudo? Porque o texto nativo é exato e o OCR é lento e erra; medi que só 16,7%
+  das páginas precisavam.
+- Como você sabe que uma página é escaneada? Pela quantidade de texto nativo e pela área coberta por
+  imagens; e, se a página não tem texto nem imagem detectada, renderizo em baixa resolução para ver se
+  há "tinta".
+- Por que guardar todas as palavras com coordenadas? Para destacar o trecho exato no PDF e para validar
+  que a citação do LLM existe na página.

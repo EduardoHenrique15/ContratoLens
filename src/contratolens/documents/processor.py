@@ -30,8 +30,14 @@ READER_VERSION = "1"
 
 
 def _limit_ocr_threads() -> None:
-    """Um processo por núcleo: o Tesseract não deve abrir várias threads em cada processo."""
+    """Prepara cada processo de trabalho.
+
+    Um processo por núcleo: o Tesseract não deve abrir várias threads em cada processo. Os
+    processos não herdam a configuração de log do principal, então os avisos do pdfminer sobre
+    PDFs malformados (sem efeito na extração) são silenciados aqui também.
+    """
     os.environ["OMP_THREAD_LIMIT"] = "1"
+    logging.getLogger("pdfminer").setLevel(logging.ERROR)
 
 
 def process_file(document_id: int, path: str, lang: str = "por") -> dict[str, Any]:

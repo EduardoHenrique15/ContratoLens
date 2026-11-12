@@ -49,3 +49,11 @@ de 0,10 MB, o que sugere muitos PDFs com texto nativo, e 11 arquivos que não s�
   continua, e um Ctrl+C cancela na hora os documentos que ainda não começaram.
 - Avisos do `pdfminer` sobre PDFs malformados ("Cannot begin marked-content...") foram silenciados no
   log: não afetam a extração.
+
+## Resultado (2026-11-12)
+
+`eval/results/documentos_20261112.json`: 1.015 PDFs e 6.407 páginas lidos sem erro; só 16,7% das
+páginas (13% dos documentos) precisaram de OCR, com confiança média de 91,1. Um documento sem OCR leva
+0,43 s na mediana; com OCR, 36 s. A leitura inteira levou cerca de 30 minutos com 4 processos, contra
+as 21 horas estimadas na Fase 1, que supunham todos os documentos escaneados. O OCR seletivo por página
+foi a decisão que mais economizou tempo.

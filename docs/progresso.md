@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | Fase 0: verificação e ambiente | Concluída | 2026-11-07 |
 | Fase 1: fundação e coleta | Concluída | 2026-11-11 |
-| Fase 2: leitura de documentos | Em andamento | 2026-11-11 |
+| Fase 2: leitura de documentos | Concluída | 2026-11-12 |
 | Fase 3: extração com LLM e validações | Não iniciada | |
 | Fase 4: conjunto de referência e comparação | Não iniciada | |
 | Fase 5: busca e agente | Não iniciada | |
@@ -89,9 +89,30 @@ Checklist (seção 13):
 
 - [x] 1. Texto com coordenadas (`pdfplumber`), detecção de página escaneada e OCR seletivo (Tesseract)
 - [x] 2. Trechos com caixa delimitadora (tabela `chunks`) e palavras por página (tabela `pages`)
-- [ ] 3. Leitura dos 1.026 documentos e estatísticas (páginas, porcentagem escaneada, tamanho médio)
+- [x] 3. Leitura dos 1.026 documentos e estatísticas (páginas, porcentagem escaneada, tamanho médio)
 
 Observações:
 
 - ADR 0007 registra as decisões de leitura.
 - 74 testes passando, inclusive OCR real de um PDF escaneado fictício em 2 processos.
+
+### Resultado da leitura (`scripts/estatisticas_documentos.py`, `eval/results/documentos_20261112.json`)
+
+| Medida | Valor |
+| --- | --- |
+| PDFs lidos | 1.015 de 1.026 arquivos (os 11 restantes não são PDF) |
+| Formatos não tratados | 4 `docx`, 1 `odt`, 2 `ole` (Word antigo), 4 desconhecidos |
+| Páginas | 6.407 (mediana de 2 por documento; média 6,3; p95 20) |
+| Páginas com OCR | 1.069 (16,7%), em 132 documentos (13,0%) |
+| Confiança média do OCR | 91,1 (mediana 93,1); 3 páginas de OCR ficaram vazias |
+| Caracteres por página | nativa: mediana 2.241; OCR: mediana 2.040 |
+| Trechos | 43.602 (mediana de 223 caracteres; p95 1.450) |
+| Tempo por documento | sem OCR: mediana 0,43 s; com OCR: mediana 36 s, p95 149 s |
+| Tempo total da leitura | cerca de 30 min com 4 processos |
+
+Pendências para as próximas fases:
+
+- Os 11 arquivos em formato não tratado ficam fora da extração (limitação documentada). Converter
+  `docx`/`odt` é possível, mas sem coordenadas não há destaque no PDF.
+- As 3 páginas de OCR vazias e as páginas de baixa confiança entram como sinal na confiança por campo
+  (Fase 3).
