@@ -1,0 +1,62 @@
+{
+  "documentos_por_status": {
+    "done": 1015,
+    "unsupported": 11
+  },
+  "documentos_por_formato": {
+    "odt": 1,
+    "desconhecido": 4,
+    "docx": 4,
+    "ole": 2,
+    "pdf": 1015
+  },
+  "documentos_lidos": 1015,
+  "documentos_com_ocr": 132,
+  "porcentagem_documentos_com_ocr": 13.0,
+  "paginas": 6407,
+  "paginas_com_ocr": 1069,
+  "porcentagem_paginas_com_ocr": 16.7,
+  "paginas_por_documento": {
+    "media": 6.3,
+    "mediana": 2,
+    "p95": 20
+  },
+  "caracteres_por_pagina_nativa": {
+    "media": 2395.0,
+    "mediana": 2241.0,
+    "p95": 4018
+  },
+  "caracteres_por_pagina_ocr": {
+    "media": 2109.0,
+    "mediana": 2040,
+    "p95": 3867
+  },
+  "confianca_ocr": {
+    "media": 91.1,
+    "mediana": 93.1,
+    "p95": 95.1
+  },
+  "paginas_ocr_vazias": 3,
+  "trechos": 43602,
+  "caracteres_por_trecho": {
+    "media": 402.0,
+    "mediana": 223.0,
+    "p95": 1450
+  },
+  "segundos_por_documento": {
+    "media": 8.03,
+    "mediana": 0.53,
+    "p95": 51.47
+  },
+  "segundos_por_documento_com_ocr": {
+    "media": 49.17,
+    "mediana": 35.97,
+    "p95": 149.05
+  },
+  "segundos_por_documento_sem_ocr": {
+    "media": 1.88,
+    "mediana": 0.43,
+    "p95": 6.74
+  },
+  "gerado_em": "2026-11-12"
+}
